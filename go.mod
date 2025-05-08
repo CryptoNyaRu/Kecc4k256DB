@@ -1,4 +1,4 @@
-module kecc4k256db
+module github.com/CryptoNyaRu/kecc4k256db
 
 go 1.24.2
 
