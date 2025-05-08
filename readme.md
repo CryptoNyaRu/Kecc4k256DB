@@ -48,7 +48,8 @@ log.Println("UpdateSync done")
 
 #### [4byte TOS and Licensing](https://www.4byte.directory/#:~:text=Search-,TOS%20and%20Licensing,-The%20data%20from)
 
-> The data from this service is given free of any license or restrictions on how it may be used
+> The data from this service is given free of any license or restrictions on how it may be used.
+> 
 > Usage of the API is also granted with the single restriction that your usage should not disrupt the service itself. If you wish to scrape this data, feel free, but please do so with limited concurrency. You are encouraged to scrape your own copy of this data if your use case is likely to produce heavy load on the API.
 
 - Kecc4k256DB 的数据来源于 [4byte API](https://www.4byte.directory/docs/)
