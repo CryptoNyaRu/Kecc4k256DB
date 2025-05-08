@@ -1,4 +1,4 @@
-module select0rs
+module kecc4k256db
 
 go 1.24.2
 
