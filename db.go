@@ -66,8 +66,8 @@ func Open(path string) (kecc4k256DB *Kecc4k256DB, err error) {
 	return kecc4k256DB, nil
 }
 
-func (s *Kecc4k256DB) JournalMode() (journalMode string, err error) {
-	if err = s.db.QueryRowContext(s.ctx, `PRAGMA journal_mode;`).Scan(&journalMode); err != nil {
+func (k *Kecc4k256DB) JournalMode() (journalMode string, err error) {
+	if err = k.db.QueryRowContext(k.ctx, `PRAGMA journal_mode;`).Scan(&journalMode); err != nil {
 		return "", err
 	}
 
@@ -83,25 +83,25 @@ type Maintenance struct {
 	EventsMaintenanceTime  int64
 }
 
-func (s *Kecc4k256DB) Maintenance() (maintenance *Maintenance, err error) {
+func (k *Kecc4k256DB) Maintenance() (maintenance *Maintenance, err error) {
 	const query = `SELECT methodsPage, methodsID, methodsMaintenanceTime, eventsPage, eventsID, eventsMaintenanceTime FROM maintenance LIMIT 1`
 
 	maintenance = &Maintenance{}
-	if err = s.db.QueryRowContext(s.ctx, query).Scan(&maintenance.MethodsPage, &maintenance.MethodsID, &maintenance.MethodsMaintenanceTime, &maintenance.EventsPage, &maintenance.EventsID, &maintenance.EventsMaintenanceTime); err != nil {
+	if err = k.db.QueryRowContext(k.ctx, query).Scan(&maintenance.MethodsPage, &maintenance.MethodsID, &maintenance.MethodsMaintenanceTime, &maintenance.EventsPage, &maintenance.EventsID, &maintenance.EventsMaintenanceTime); err != nil {
 		return nil, err
 	}
 
 	return maintenance, nil
 }
-func (s *Kecc4k256DB) UpdateMethodsMaintenance(methodsPage int64, methodsID int64) (err error) {
+func (k *Kecc4k256DB) UpdateMethodsMaintenance(methodsPage int64, methodsID int64) (err error) {
 	const query = `UPDATE maintenance SET methodsPage = ?, methodsID = ?, methodsMaintenanceTime = ? WHERE ROWID = 1`
-	_, err = s.db.ExecContext(s.ctx, query, methodsPage, methodsID, time.Now().Unix())
+	_, err = k.db.ExecContext(k.ctx, query, methodsPage, methodsID, time.Now().Unix())
 
 	return err
 }
-func (s *Kecc4k256DB) UpdateEventsMaintenance(eventsPage int64, eventsID int64) (err error) {
+func (k *Kecc4k256DB) UpdateEventsMaintenance(eventsPage int64, eventsID int64) (err error) {
 	const query = `UPDATE maintenance SET eventsPage = ?, eventsID = ?, eventsMaintenanceTime = ? WHERE ROWID = 1`
-	_, err = s.db.ExecContext(s.ctx, query, eventsPage, eventsID, time.Now().Unix())
+	_, err = k.db.ExecContext(k.ctx, query, eventsPage, eventsID, time.Now().Unix())
 
 	return err
 }
@@ -111,9 +111,9 @@ type MethodRecord struct {
 	Method   string
 }
 
-func (s *Kecc4k256DB) GetMethodsBySelector(selector string) (methods []string, err error) {
+func (k *Kecc4k256DB) GetMethodsBySelector(selector string) (methods []string, err error) {
 	const query = `SELECT method FROM methods WHERE selector = ?`
-	rows, err := s.db.QueryContext(s.ctx, query, selector)
+	rows, err := k.db.QueryContext(k.ctx, query, selector)
 	if err != nil {
 		return nil, err
 	}
@@ -131,25 +131,25 @@ func (s *Kecc4k256DB) GetMethodsBySelector(selector string) (methods []string, e
 
 	return methods, rows.Err()
 }
-func (s *Kecc4k256DB) GetSelectorByMethod(method string) (selector string, err error) {
+func (k *Kecc4k256DB) GetSelectorByMethod(method string) (selector string, err error) {
 	const query = `SELECT selector FROM methods WHERE method = ?;`
 
-	if err = s.db.QueryRowContext(s.ctx, query, method).Scan(&selector); errors.Is(err, sql.ErrNoRows) {
+	if err = k.db.QueryRowContext(k.ctx, query, method).Scan(&selector); errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
 
 	return selector, err
 }
-func (s *Kecc4k256DB) MethodRecords() (methodRecords int64, err error) {
+func (k *Kecc4k256DB) MethodRecords() (methodRecords int64, err error) {
 	const query = `SELECT COUNT(*) FROM methods`
-	if err = s.db.QueryRowContext(s.ctx, query).Scan(&methodRecords); err != nil {
+	if err = k.db.QueryRowContext(k.ctx, query).Scan(&methodRecords); err != nil {
 		return 0, err
 	}
 
 	return methodRecords, nil
 }
-func (s *Kecc4k256DB) UpsertMethodRecords(methodRecords []*MethodRecord) (err error) {
-	tx, err := s.db.BeginTx(s.ctx, nil)
+func (k *Kecc4k256DB) UpsertMethodRecords(methodRecords []*MethodRecord) (err error) {
+	tx, err := k.db.BeginTx(k.ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ func (s *Kecc4k256DB) UpsertMethodRecords(methodRecords []*MethodRecord) (err er
 	}(tx)
 
 	const query = `INSERT INTO methods(selector, method) VALUES (?, ?) ON CONFLICT(selector, method) DO NOTHING`
-	stmt, err := tx.PrepareContext(s.ctx, query)
+	stmt, err := tx.PrepareContext(k.ctx, query)
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func (s *Kecc4k256DB) UpsertMethodRecords(methodRecords []*MethodRecord) (err er
 	}(stmt)
 
 	for _, methodRecord := range methodRecords {
-		if _, err = stmt.ExecContext(s.ctx, methodRecord.Selector, methodRecord.Method); err != nil {
+		if _, err = stmt.ExecContext(k.ctx, methodRecord.Selector, methodRecord.Method); err != nil {
 			return err
 		}
 	}
@@ -179,35 +179,35 @@ type EventRecord struct {
 	Event     string
 }
 
-func (s *Kecc4k256DB) GetEventBySignature(signature string) (event string, err error) {
+func (k *Kecc4k256DB) GetEventBySignature(signature string) (event string, err error) {
 	const query = `SELECT event FROM events WHERE signature = ?;`
 
-	if err = s.db.QueryRowContext(s.ctx, query, signature).Scan(&event); errors.Is(err, sql.ErrNoRows) {
+	if err = k.db.QueryRowContext(k.ctx, query, signature).Scan(&event); errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
 
 	return event, err
 }
-func (s *Kecc4k256DB) GetSignatureByEvent(event string) (signature string, err error) {
+func (k *Kecc4k256DB) GetSignatureByEvent(event string) (signature string, err error) {
 	const query = `SELECT signature FROM events WHERE event = ?;`
 
-	if err = s.db.QueryRowContext(s.ctx, query, event).Scan(&signature); errors.Is(err, sql.ErrNoRows) {
+	if err = k.db.QueryRowContext(k.ctx, query, event).Scan(&signature); errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
 
 	return signature, err
 }
-func (s *Kecc4k256DB) EventRecords() (eventRecords int64, err error) {
+func (k *Kecc4k256DB) EventRecords() (eventRecords int64, err error) {
 	const query = `SELECT COUNT(*) FROM events`
 
-	if err = s.db.QueryRowContext(s.ctx, query).Scan(&eventRecords); err != nil {
+	if err = k.db.QueryRowContext(k.ctx, query).Scan(&eventRecords); err != nil {
 		return 0, err
 	}
 
 	return eventRecords, nil
 }
-func (s *Kecc4k256DB) UpsertEventRecords(eventRecords []*EventRecord) (err error) {
-	tx, err := s.db.BeginTx(s.ctx, nil)
+func (k *Kecc4k256DB) UpsertEventRecords(eventRecords []*EventRecord) (err error) {
+	tx, err := k.db.BeginTx(k.ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -216,7 +216,7 @@ func (s *Kecc4k256DB) UpsertEventRecords(eventRecords []*EventRecord) (err error
 	}(tx)
 
 	const query = `INSERT INTO events(signature, event) VALUES (?, ?) ON CONFLICT(signature, event) DO NOTHING`
-	stmt, err := tx.PrepareContext(s.ctx, query)
+	stmt, err := tx.PrepareContext(k.ctx, query)
 	if err != nil {
 		return err
 	}
@@ -225,7 +225,7 @@ func (s *Kecc4k256DB) UpsertEventRecords(eventRecords []*EventRecord) (err error
 	}(stmt)
 
 	for _, eventRecord := range eventRecords {
-		if _, err = stmt.ExecContext(s.ctx, eventRecord.Signature, eventRecord.Event); err != nil {
+		if _, err = stmt.ExecContext(k.ctx, eventRecord.Signature, eventRecord.Event); err != nil {
 			return err
 		}
 	}

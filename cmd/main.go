@@ -2,36 +2,46 @@ package main
 
 import (
 	"fmt"
+	"github.com/CryptoNyaRu/kecc4k256db"
 	"log"
-	"select0rs"
 	"time"
 )
 
 func main() {
 	kecc4k256DB, err := kecc4k256db.Open("./kecc4k256.db")
 	if err != nil {
-		log.Fatalf("Failed to open: %s\n", err)
+		log.Fatalln(fmt.Sprintf("Failed to open: %s", err))
 	}
 	journalMode, err := kecc4k256DB.JournalMode()
 	if err != nil {
-		log.Fatalf("Failed to get journal mode: %s\n", err)
+		log.Fatalln(fmt.Sprintf("Failed to get journal mode: %s", err))
 	}
-	log.Printf("Database connection established, journal mode: %s\n\n", journalMode)
+	log.Println(fmt.Sprintf("Database connection established, journal mode: %s\n", journalMode))
 
 	maintenance, err := kecc4k256DB.Maintenance()
 	if err != nil {
-		log.Fatalf("Failed to get maintenance: %s\n", err)
+		log.Fatalln(fmt.Sprintf("Failed to get maintenance: %s", err))
 	}
 	methodRecords, err := kecc4k256DB.MethodRecords()
 	if err != nil {
-		log.Fatalf("Failed to get method records: %s\n", err)
+		log.Fatalln(fmt.Sprintf("Failed to get method records: %s", err))
 	}
 	eventRecords, err := kecc4k256DB.EventRecords()
 	if err != nil {
-		log.Fatalf("Failed to get event records: %s\n", err)
+		log.Fatalln(fmt.Sprintf("Failed to get event records: %s", err))
 	}
-	fmt.Println(fmt.Sprintf("[Methods]\nPage       : %d\nID         : %d\nRecords    : %d\nMaintenance: %s\n", maintenance.MethodsPage, maintenance.MethodsID, methodRecords, time.Unix(maintenance.MethodsMaintenanceTime, 0).String()))
-	fmt.Println(fmt.Sprintf("[Events]\nPage       : %d\nID         : %d\nRecords    : %d\nMaintenance: %s\n", maintenance.EventsPage, maintenance.EventsPage, eventRecords, time.Unix(maintenance.EventsMaintenanceTime, 0).String()))
+
+	fmt.Println("[Methods]")
+	fmt.Println(fmt.Sprintf("Page       : %d", maintenance.MethodsPage))
+	fmt.Println(fmt.Sprintf("ID         : %d", maintenance.MethodsID))
+	fmt.Println(fmt.Sprintf("Records    : %d", methodRecords))
+	fmt.Println(fmt.Sprintf("Maintenance: %s\n", time.Unix(maintenance.MethodsMaintenanceTime, 0).String()))
+
+	fmt.Println("[Events]")
+	fmt.Println(fmt.Sprintf("Page       : %d", maintenance.EventsPage))
+	fmt.Println(fmt.Sprintf("ID         : %d", maintenance.EventsID))
+	fmt.Println(fmt.Sprintf("Records    : %d", eventRecords))
+	fmt.Println(fmt.Sprintf("Maintenance: %s\n", time.Unix(maintenance.EventsMaintenanceTime, 0).String()))
 
 	selector := "0x0178fe3f"
 	method := "getData(uint256)"

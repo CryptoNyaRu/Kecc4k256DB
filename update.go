@@ -10,6 +10,11 @@ import (
 )
 
 const (
+	_4ByteMethodsEndpoint = "https://www.4byte.directory/api/v1/signatures/?format=json&ordering=created_at&page="
+	_4ByteEventsEndpoint  = "https://www.4byte.directory/api/v1/event-signatures/?format=json&ordering=created_at&page="
+)
+
+const (
 	Updating = iota
 	Successful
 	Warning
@@ -28,8 +33,8 @@ type Logger struct {
 	Error   func(contents ...any)
 }
 
-func (s *Kecc4k256DB) UpdateAsync() (methodsProgress chan *UpdateProgress, eventsProgress chan *UpdateProgress) {
-	s.updateLock.Lock()
+func (k *Kecc4k256DB) UpdateAsync() (methodsProgress chan *UpdateProgress, eventsProgress chan *UpdateProgress) {
+	k.updateLock.Lock()
 
 	methodsProgress = make(chan *UpdateProgress, 256)
 	eventsProgress = make(chan *UpdateProgress, 256)
@@ -43,7 +48,7 @@ func (s *Kecc4k256DB) UpdateAsync() (methodsProgress chan *UpdateProgress, event
 			waitGroup.Done()
 		}()
 
-		maintenance, err := s.Maintenance()
+		maintenance, err := k.Maintenance()
 		if err != nil {
 			methodsProgress <- &UpdateProgress{
 				Status: Failed,
@@ -55,7 +60,7 @@ func (s *Kecc4k256DB) UpdateAsync() (methodsProgress chan *UpdateProgress, event
 		for page := maintenance.MethodsPage + 1; ; page++ {
 			var signatureList *signatureList
 			for {
-				signatureList, err = fetchSignatureList(methods, int(page))
+				signatureList, err = fetchMethods(int(page))
 				if err != nil {
 					methodsProgress <- &UpdateProgress{
 						Status: Warning,
@@ -77,7 +82,7 @@ func (s *Kecc4k256DB) UpdateAsync() (methodsProgress chan *UpdateProgress, event
 				}
 			}
 			if len(methodRecords) > 0 {
-				if err = s.UpsertMethodRecords(methodRecords); err != nil {
+				if err = k.UpsertMethodRecords(methodRecords); err != nil {
 					methodsProgress <- &UpdateProgress{
 						Status: Failed,
 						Log:    fmt.Sprintf("Failed to upsert method records: %s", err),
@@ -92,7 +97,7 @@ func (s *Kecc4k256DB) UpdateAsync() (methodsProgress chan *UpdateProgress, event
 				} else {
 					savedPage = page - 1
 				}
-				if err = s.UpdateMethodsMaintenance(savedPage, savedID); err != nil {
+				if err = k.UpdateMethodsMaintenance(savedPage, savedID); err != nil {
 					methodsProgress <- &UpdateProgress{
 						Status: Failed,
 						Log:    fmt.Sprintf("Failed to update methods maintenance: %s", err),
@@ -111,7 +116,7 @@ func (s *Kecc4k256DB) UpdateAsync() (methodsProgress chan *UpdateProgress, event
 			}
 		}
 
-		records, _ := s.MethodRecords()
+		records, _ := k.MethodRecords()
 		methodsProgress <- &UpdateProgress{
 			Status: Successful,
 			Log:    fmt.Sprintf("Methods are up to date with records: %d", records),
@@ -124,7 +129,7 @@ func (s *Kecc4k256DB) UpdateAsync() (methodsProgress chan *UpdateProgress, event
 			waitGroup.Done()
 		}()
 
-		maintenance, err := s.Maintenance()
+		maintenance, err := k.Maintenance()
 		if err != nil {
 			eventsProgress <- &UpdateProgress{
 				Status: Failed,
@@ -136,7 +141,7 @@ func (s *Kecc4k256DB) UpdateAsync() (methodsProgress chan *UpdateProgress, event
 		for page := maintenance.EventsPage + 1; ; page++ {
 			var signatureList *signatureList
 			for {
-				signatureList, err = fetchSignatureList(events, int(page))
+				signatureList, err = fetchEvents(int(page))
 				if err != nil {
 					eventsProgress <- &UpdateProgress{
 						Status: Warning,
@@ -158,7 +163,7 @@ func (s *Kecc4k256DB) UpdateAsync() (methodsProgress chan *UpdateProgress, event
 				}
 			}
 			if len(eventRecords) > 0 {
-				if err = s.UpsertEventRecords(eventRecords); err != nil {
+				if err = k.UpsertEventRecords(eventRecords); err != nil {
 					eventsProgress <- &UpdateProgress{
 						Status: Failed,
 						Log:    fmt.Sprintf("Failed to upsert event records: %s", err),
@@ -173,7 +178,7 @@ func (s *Kecc4k256DB) UpdateAsync() (methodsProgress chan *UpdateProgress, event
 				} else {
 					savedPage = page - 1
 				}
-				if err = s.UpdateEventsMaintenance(savedPage, savedID); err != nil {
+				if err = k.UpdateEventsMaintenance(savedPage, savedID); err != nil {
 					eventsProgress <- &UpdateProgress{
 						Status: Failed,
 						Log:    fmt.Sprintf("Failed to update events maintenance: %s", err),
@@ -192,7 +197,7 @@ func (s *Kecc4k256DB) UpdateAsync() (methodsProgress chan *UpdateProgress, event
 			}
 		}
 
-		eventRecords, _ := s.EventRecords()
+		eventRecords, _ := k.EventRecords()
 		eventsProgress <- &UpdateProgress{
 			Status: Successful,
 			Log:    fmt.Sprintf("Events are up to date with records: %d", eventRecords),
@@ -201,16 +206,16 @@ func (s *Kecc4k256DB) UpdateAsync() (methodsProgress chan *UpdateProgress, event
 
 	go func() {
 		waitGroup.Wait()
-		s.updateLock.Unlock()
+		k.updateLock.Unlock()
 	}()
 
 	return methodsProgress, eventsProgress
 }
-func (s *Kecc4k256DB) UpdateSync(logger *Logger) {
+func (k *Kecc4k256DB) UpdateSync(logger *Logger) {
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(2)
 
-	methodsProgress, eventsProgress := s.UpdateAsync()
+	methodsProgress, eventsProgress := k.UpdateAsync()
 
 	go func() {
 		for updateProgress := range methodsProgress {
@@ -259,11 +264,6 @@ func (s *Kecc4k256DB) UpdateSync(logger *Logger) {
 	waitGroup.Wait()
 }
 
-const (
-	methods = iota
-	events
-)
-
 type signatureList struct {
 	Next    *string `json:"next,omitempty"`
 	Results []struct {
@@ -273,17 +273,14 @@ type signatureList struct {
 	} `json:"results"`
 }
 
-func fetchSignatureList(type_ int, page int) (signatureList *signatureList, err error) {
-	var url string
-	switch type_ {
-	case methods:
-		url = `https://www.4byte.directory/api/v1/signatures/?format=json&ordering=created_at&page=`
-
-	case events:
-		url = `https://www.4byte.directory/api/v1/event-signatures/?format=json&ordering=created_at&page=`
-	}
-
-	request, err := http.NewRequest("GET", url+fmt.Sprint(page), nil)
+func fetchMethods(page int) (signatureList *signatureList, err error) {
+	return fetchSignatureList(_4ByteMethodsEndpoint + fmt.Sprint(page))
+}
+func fetchEvents(page int) (signatureList *signatureList, err error) {
+	return fetchSignatureList(_4ByteEventsEndpoint + fmt.Sprint(page))
+}
+func fetchSignatureList(url string) (signatureList *signatureList, err error) {
+	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}

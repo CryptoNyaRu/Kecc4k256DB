@@ -5,10 +5,10 @@
 
 ## 数据库信息
 
-- 维护时间: ***2025-05-08***
-- 方法签名: ***1121550***
-- 事件签名: ***263597***
-- 文件大小: ***84.2 MB (88,338,432 字节)***
+- 维护时间: ***2025-05-13***
+- 方法签名: ***1122273***
+- 事件签名: ***263810***
+- 文件大小: ***84.3 MB (88,440,832 字节)***
 
 **数据库随缘维护, 请自行定期进行增量更新!!!**
 
@@ -25,10 +25,10 @@ log.Println("UpdateSync will start in 3 seconds...")
 time.Sleep(3 * time.Second)
 
 kecc4k256DB.UpdateSync(&kecc4k256db.Logger{
-	Info:    log.Println,
-	Success: log.Println,
-	Warning: log.Println,
-	Error:   log.Println,
+    Info:    log.Println,
+    Success: log.Println,
+    Warning: log.Println,
+    Error:   log.Println,
 })
 
 log.Println("UpdateSync done")
@@ -53,5 +53,5 @@ log.Println("UpdateSync done")
 > Usage of the API is also granted with the single restriction that your usage should not disrupt the service itself. If you wish to scrape this data, feel free, but please do so with limited concurrency. You are encouraged to scrape your own copy of this data if your use case is likely to produce heavy load on the API.
 
 - Kecc4k256DB 的数据来源于 [4byte API](https://www.4byte.directory/docs/)
-- 4byte 允许用户在遵守公平使用原则的情况下自由地使用其数据, Kecc4k256DB 遵守了这一规则, 未使用高并发更新数据库
+- [4byte](https://www.4byte.directory/) 允许用户在遵守公平使用原则的情况下自由地使用其数据, Kecc4k256DB 遵守了这一规则, 未使用高并发更新数据库
   
